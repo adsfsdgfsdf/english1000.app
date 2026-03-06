@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English 1000 Cloud Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .word-card { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid #f1f5f9; }
+        .word-card.mastered { border-left: 5px solid #10b981; background-color: #f0fdf4; }
+        .word-card.playing { border: 2px solid #6366f1; transform: translateY(-4px); background-color: #eef2ff; z-index: 10; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        .ipa { font-family: 'Courier New', Courier, monospace; color: #6366f1; font-weight: 600; }
+        .mic-active { animation: pulse-red 1.5s infinite; background-color: #fee2e2 !important; color: #ef4444 !important; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-900 pb-10">
+
+    <div id="loading" class="loading-overlay">
+        <div class="flex flex-col items-center">
+            <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="font-bold text-slate-600">Đang kết nối đám mây...</p>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row gap-6 mb-8 items-center justify-between">
+            <div>
+                <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight">ENGLISH 1000 <span class="text-indigo-600">CLOUD</span></h1>
+                <div class="flex items-center gap-2 mt-1">
+                    <span id="user-status" class="w-2 h-2 rounded-full bg-slate-300"></span>
+                    <p id="user-id-display" class="text-[10px] text-slate-400 font-mono">Đang kiểm tra danh tính...</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-4 items-center bg-white p-5 rounded-[2rem] shadow-sm border border-slate-200">
+                <div class="text-right">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tiến độ lưu trên mây</p>
+                    <p id="progress-text" class="text-2xl font-black text-indigo-600">0/1000</p>
+                </div>
+                <div class="w-24 bg-slate-100 h-4 rounded-full overflow-hidden">
+                    <div id="progress-bar" class="bg-indigo-500 h-full transition-all duration-1000" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Center -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="lg:col-span-2 bg-slate-900 rounded-[2.5rem] p-6 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
+                <div class="flex items-center gap-4">
+                    <div id="player-icon" class="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-3xl">🎧</div>
+                    <div>
+                        <h3 class="font-bold text-xl">Phòng luyện tập</h3>
+                        <p id="now-playing" class="text-slate-400 text-sm italic">Chọn từ để bắt đầu luyện nghe & nói</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button id="btn-play" onclick="startReflexMode()" class="bg-indigo-500 text-white px-8 py-3 rounded-2xl font-bold hover:bg-indigo-400 transition shadow-lg shadow-indigo-500/30">Phát Phản Xạ</button>
+                    <button id="btn-stop" onclick="stopReflexMode()" class="bg-rose-500 text-white px-8 py-3 rounded-2xl font-bold hover:bg-rose-600 transition hidden">Dừng</button>
+                    <select id="voice-rate" class="bg-slate-800 border-none text-white text-sm p-3 rounded-xl outline-none font-bold">
+                        <option value="0.7">Chậm</option>
+                        <option value="1" selected>Vừa</option>
+                        <option value="1.2">Nhanh</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-[2.5rem] p-6 border border-slate-200 shadow-sm flex items-center justify-center text-center">
+                <div>
+                    <p class="text-slate-400 text-xs font-bold uppercase mb-2">Lời khuyên hôm nay</p>
+                    <p class="text-slate-700 font-semibold italic">"Mỗi ngày 15 phút luyện phản xạ nghe giúp bạn ghi nhớ nhanh gấp 3 lần."</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search & Filter -->
+        <div class="sticky top-4 z-40 bg-slate-50/90 backdrop-blur-xl py-4 mb-6">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1 relative">
+                    <input type="text" id="searchInput" onkeyup="searchWord()" placeholder="Tìm từ, nghĩa hoặc ví dụ..." 
+                           class="w-full pl-14 pr-6 py-4 rounded-3xl border-none shadow-lg shadow-slate-200/50 focus:ring-2 focus:ring-indigo-400 outline-none transition-all">
+                    <span class="absolute left-6 top-4.5 text-xl opacity-30">🔍</span>
+                </div>
+                <div class="flex overflow-x-auto gap-2 no-scrollbar px-2 py-1">
+                    <button onclick="filterCat('All')" class="cat-btn shrink-0 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm">Tất cả</button>
+                    <button onclick="filterCat('Family')" class="cat-btn shrink-0 px-6 py-3 bg-white text-slate-600 rounded-2xl font-bold text-sm shadow-sm border border-slate-200 hover:border-indigo-300 transition">Gia đình</button>
+                    <button onclick="filterCat('Action')" class="cat-btn shrink-0 px-6 py-3 bg-white text-slate-600 rounded-2xl font-bold text-sm shadow-sm border border-slate-200 hover:border-indigo-300 transition">Hành động</button>
+                    <button onclick="filterCat('Food')" class="cat-btn shrink-0 px-6 py-3 bg-white text-slate-600 rounded-2xl font-bold text-sm shadow-sm border border-slate-200 hover:border-indigo-300 transition">Ăn uống</button>
+                    <button onclick="filterCat('Job')" class="cat-btn shrink-0 px-6 py-3 bg-white text-slate-600 rounded-2xl font-bold text-sm shadow-sm border border-slate-200 hover:border-indigo-300 transition">Nghề nghiệp</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Word Grid -->
+        <div id="wordGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <!-- Content -->
+        </div>
+    </div>
+
+    <!-- Toast Feedback -->
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 rounded-[2rem] text-white font-bold shadow-2xl transition-all opacity-0 scale-90 pointer-events-none z-50"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Config
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'english-1000-master';
+
+        let user = null;
+        let masteredIds = [];
+        let isReflexRunning = false;
+        let reflexIndex = 0;
+
+        // DỮ LIỆU GỐC 1000 TỪ (Mẫu)
+        const categoriesData = {
+            Family: [
+                {w: "Mother", i: "/ˈmʌðər/", m: "Mẹ", e: "My mother is kind."},
+                {w: "Father", i: "/ˈfɑːðər/", m: "Bố", e: "My father is tall."},
+                {w: "Sister", i: "/ˈsɪstər/", m: "Chị/Em gái", e: "I have a sister."},
+                {w: "Brother", i: "/ˈbrʌðər/", m: "Anh/Em trai", e: "My big brother."},
+                {w: "Parents", i: "/ˈperənts/", m: "Bố mẹ", e: "Love your parents."},
+                {w: "Daughter", i: "/ˈdɔːtər/", m: "Con gái", e: "She is my daughter."},
+                {w: "Son", i: "/sʌn/", m: "Con trai", e: "His son is six."},
+                {w: "Grandmother", i: "/ˈɡrænmʌðər/", m: "Bà", e: "My grandmother is 70."}
+            ],
+            Action: [
+                {w: "Eat", i: "/iːt/", m: "Ăn", e: "I eat rice."},
+                {w: "Drink", i: "/drɪŋk/", m: "Uống", e: "Drink water."},
+                {w: "Sleep", i: "/sliːp/", m: "Ngủ", e: "Time to sleep."},
+                {w: "Run", i: "/rʌn/", m: "Chạy", e: "Run fast."},
+                {w: "Speak", i: "/spiːk/", m: "Nói", e: "Speak English."},
+                {w: "Listen", i: "/ˈlɪsn/", m: "Nghe", e: "Listen carefully."},
+                {w: "Think", i: "/θɪŋk/", m: "Nghĩ", e: "Think about it."},
+                {w: "Learn", i: "/lɜːrn/", m: "Học", e: "I learn daily."}
+            ],
+            Food: [
+                {w: "Bread", i: "/bred/", m: "Bánh mì", e: "Fresh bread."},
+                {w: "Milk", i: "/mɪlk/", m: "Sữa", e: "A glass of milk."},
+                {w: "Apple", i: "/ˈæpl/", m: "Quả táo", e: "An apple a day."},
+                {w: "Rice", i: "/raɪs/", m: "Cơm/Gạo", e: "We eat rice."},
+                {w: "Sugar", i: "/ˈʃʊɡər/", m: "Đường", e: "Less sugar please."}
+            ],
+            Job: [
+                {w: "Teacher", i: "/ˈtiːtʃər/", m: "Giáo viên", e: "She is a teacher."},
+                {w: "Doctor", i: "/ˈdɒktər/", m: "Bác sĩ", e: "See the doctor."},
+                {w: "Student", i: "/ˈstjuːdnt/", m: "Học sinh", e: "I am a student."}
+            ]
+        };
+
+        const vocabulary = [];
+        let idCounter = 1;
+        Object.keys(categoriesData).forEach(cat => {
+            categoriesData[cat].forEach(item => {
+                vocabulary.push({ id: idCounter++, word: item.w, ipa: item.i, meaning: item.m, cat: cat, ex: item.e });
+            });
+        });
+        
+        // Fill up to 1000 items (Simulation for full scale)
+        while(vocabulary.length < 1000) {
+            const template = vocabulary[Math.floor(Math.random() * 20)];
+            vocabulary.push({...template, id: idCounter++});
+        }
+
+        // Auth Logic
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Auth Error:", err);
+                showToast("Lỗi kết nối đám mây", true);
+            }
+        };
+
+        onAuthStateChanged(auth, (u) => {
+            if (u) {
+                user = u;
+                document.getElementById('user-id-display').innerText = `ID: ${u.uid}`;
+                document.getElementById('user-status').classList.replace('bg-slate-300', 'bg-emerald-500');
+                syncWithCloud();
+            }
+        });
+
+        // Cloud Sync
+        const syncWithCloud = () => {
+            if (!user) return;
+            // RULE 1: Specific Path
+            const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'progress', 'masteredWords');
+            
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    masteredIds = docSnap.data().ids || [];
+                }
+                updateUI();
+                render();
+                document.getElementById('loading').style.display = 'none';
+            }, (err) => {
+                console.error("Sync Error:", err);
+                document.getElementById('loading').style.display = 'none';
+            });
+        };
+
+        const saveToCloud = async (newIds) => {
+            if (!user) return;
+            const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'progress', 'masteredWords');
+            try {
+                await setDoc(docRef, { ids: newIds });
+            } catch (err) {
+                showToast("Không thể lưu dữ liệu lên đám mây", true);
+            }
+        };
+
+        // Speech Recognition
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+        }
+
+        // UI Functions
+        window.showToast = (msg, isError = false) => {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.className = `fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 rounded-[2rem] text-white font-bold shadow-2xl transition-all z-50 opacity-100 scale-100 ${isError ? 'bg-rose-500' : 'bg-indigo-600'}`;
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'scale-90');
+            }, 2500);
+        };
+
+        const updateUI = () => {
+            const total = vocabulary.length;
+            const masteredCount = masteredIds.length;
+            const percent = (masteredCount / total) * 100;
+            document.getElementById('progress-bar').style.width = percent + '%';
+            document.getElementById('progress-text').innerText = `${masteredCount}/${total}`;
+        };
+
+        window.toggleMaster = async (id) => {
+            let newIds = [...masteredIds];
+            if(newIds.includes(id)) {
+                newIds = newIds.filter(i => i !== id);
+            } else {
+                newIds.push(id);
+                showToast("Đã đồng bộ lên đám mây! ✅");
+            }
+            masteredIds = newIds;
+            await saveToCloud(newIds);
+        };
+
+        const render = (data = vocabulary) => {
+            const grid = document.getElementById('wordGrid');
+            grid.innerHTML = '';
+            data.forEach(item => {
+                const isMastered = masteredIds.includes(item.id);
+                const card = document.createElement('div');
+                card.id = `card-${item.id}`;
+                card.className = `word-card bg-white p-6 rounded-[2rem] shadow-sm relative ${isMastered ? 'mastered' : ''}`;
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="text-[10px] font-bold uppercase bg-slate-100 px-3 py-1 rounded-full text-slate-500">${item.cat}</span>
+                        <div class="flex gap-2">
+                            <button onclick="toggleMaster(${item.id})" class="p-2 rounded-xl transition ${isMastered ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-slate-50 text-slate-300'}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-extrabold text-slate-800 mb-1">${item.word}</h3>
+                    <p class="ipa mb-2 text-sm">${item.ipa}</p>
+                    <p class="text-slate-600 font-bold mb-3">${item.meaning}</p>
+                    <div class="pt-4 border-t border-slate-50 flex justify-between items-center">
+                        <button onclick="practiceSpeaking(${item.id}, '${item.word}')" id="mic-${item.id}" class="flex items-center gap-2 text-xs font-bold text-rose-500 hover:bg-rose-50 px-3 py-2 rounded-xl transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                            NÓI
+                        </button>
+                        <button onclick="speak('${item.word}')" class="flex items-center gap-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-xl transition">
+                            NGHE
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        };
+
+        window.speak = (text, onEnd) => {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = 'en-US';
+            utter.rate = document.getElementById('voice-rate').value;
+            if(onEnd) utter.onend = onEnd;
+            window.speechSynthesis.speak(utter);
+        };
+
+        window.practiceSpeaking = (id, targetWord) => {
+            if (!recognition) {
+                showToast("Trình duyệt không hỗ trợ luyện nói", true);
+                return;
+            }
+            const micBtn = document.getElementById(`mic-${id}`);
+            const playerIcon = document.getElementById('player-icon');
+            
+            micBtn.classList.add('mic-active');
+            playerIcon.innerText = "🎙️";
+            playerIcon.classList.add('mic-active');
+            document.getElementById('now-playing').innerText = `Hãy nói: "${targetWord}"`;
+
+            recognition.start();
+            recognition.onresult = (e) => {
+                const speech = e.results[0][0].transcript.toLowerCase().trim();
+                if(speech === targetWord.toLowerCase().trim()) {
+                    showToast("Xuất sắc! Bạn nói rất chuẩn.");
+                    if(!masteredIds.includes(id)) toggleMaster(id);
+                } else {
+                    showToast(`Gần đúng rồi! Bạn nói: "${speech}"`, true);
+                }
+            };
+            recognition.onend = () => {
+                micBtn.classList.remove('mic-active');
+                playerIcon.innerText = "🎧";
+                playerIcon.classList.remove('mic-active');
+                document.getElementById('now-playing').innerText = "Chọn từ để bắt đầu luyện nghe & nói";
+            };
+        };
+
+        window.startReflexMode = () => {
+            const mastered = vocabulary.filter(v => masteredIds.includes(v.id));
+            if(mastered.length === 0) {
+                showToast("Đánh dấu vài từ đã thuộc để luyện phản xạ", true);
+                return;
+            }
+            isReflexRunning = true;
+            reflexIndex = 0;
+            document.getElementById('btn-play').classList.add('hidden');
+            document.getElementById('btn-stop').classList.remove('hidden');
+            playSequence(mastered);
+        };
+
+        window.stopReflexMode = () => {
+            isReflexRunning = false;
+            window.speechSynthesis.cancel();
+            document.getElementById('btn-play').classList.remove('hidden');
+            document.getElementById('btn-stop').classList.add('hidden');
+            document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
+        };
+
+        const playSequence = (list) => {
+            if(!isReflexRunning) return;
+            if(reflexIndex >= list.length) reflexIndex = 0;
+            const current = list[reflexIndex];
+            document.getElementById('now-playing').innerText = `Phản xạ nghe: ${current.word}`;
+            
+            document.querySelectorAll('.word-card').forEach(c => c.classList.remove('playing'));
+            const card = document.getElementById(`card-${current.id}`);
+            if(card) {
+                card.classList.add('playing');
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            speak(current.word, () => {
+                setTimeout(() => {
+                    if(isReflexRunning) {
+                        reflexIndex++;
+                        playSequence(list);
+                    }
+                }, 1800);
+            });
+        };
+
+        window.filterCat = (cat) => {
+            document.querySelectorAll('.cat-btn').forEach(b => {
+                b.className = "cat-btn shrink-0 px-6 py-3 bg-white text-slate-600 rounded-2xl font-bold text-sm shadow-sm border border-slate-200 hover:border-indigo-300 transition";
+                if(b.innerText.includes(cat) || (cat === 'All' && b.innerText === 'Tất cả')) b.className = "cat-btn shrink-0 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm shadow-sm";
+            });
+            if(cat === 'All') render(vocabulary);
+            else render(vocabulary.filter(v => v.cat === cat));
+        };
+
+        window.searchWord = () => {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            render(vocabulary.filter(v => v.word.toLowerCase().includes(q) || v.meaning.toLowerCase().includes(q)));
+        };
+
+        initAuth();
+    </script>
+</body>
+</html>
